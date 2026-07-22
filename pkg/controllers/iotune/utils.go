@@ -18,15 +18,19 @@ func ParseIotuneInput(input string, volSize int64) (hypervisor.IOTune, error) {
 	}
 
 	parts := strings.Split(input, ",")
-	
+
 	// Pad parts up to 3 elements for backward compatibility
 	for len(parts) < 3 {
 		parts = append(parts, "0")
 	}
 
-	totalIops, _ := strconv.ParseUint(strings.TrimSpace(parts[0]), 10, 64)
-	writeIops, _ := strconv.ParseUint(strings.TrimSpace(parts[1]), 10, 64)
-	readIops, _ := strconv.ParseUint(strings.TrimSpace(parts[2]), 10, 64)
+	totalIops, tiErr := strconv.ParseUint(strings.TrimSpace(parts[0]), 10, 64)
+	writeIops, wiErr := strconv.ParseUint(strings.TrimSpace(parts[1]), 10, 64)
+	readIops, reErr := strconv.ParseUint(strings.TrimSpace(parts[2]), 10, 64)
+
+	if tiErr != nil || wiErr != nil || reErr != nil {
+		return inputIotune, fmt.Errorf("invalid integer in iotune input: %s", input)
+	}
 
 	// Logical constraints enforcement per user request
 	if totalIops > 0 {
