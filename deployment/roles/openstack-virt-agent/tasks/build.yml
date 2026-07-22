@@ -1,0 +1,48 @@
+- name: "Register git_build_commit_sha as per user input"
+  ansible.builtin.command: "git rev-parse {{ openstack_virt_agent_version_tag }}"
+  register: git_build_commit_sha
+  args:
+    chdir: "{{ role_path }}/../../../"
+
+- name: "Display build commit before building"
+  ansible.builtin.debug:
+    msg: "Commit SHA is {{ git_build_commit_sha.stdout }}"
+
+- name: "Compute build version tag if available"
+  ansible.builtin.command: "git describe --tags --always {{ git_build_commit_sha.stdout }}"
+  register: git_build_version_tag
+  args:
+    chdir: "{{ role_path }}/../../../"
+
+- name: "Display computed build version"
+  ansible.builtin.debug:
+    msg: "Build version is {{ git_build_version_tag.stdout }}"
+
+- name: "Create a temporary directory for a pure build"
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: build-openstack-virt-agent
+  register: temp_build_dir
+
+- name: "Extract source code at the exact commit into temp directory"
+  ansible.builtin.shell: "git archive {{ git_build_commit_sha.stdout }} | tar -x -C {{ temp_build_dir.path }}"
+  args:
+    chdir: "{{ role_path }}/../../../"
+
+- name: "Build openstack-virt-agent binary at exact commit"
+  ansible.builtin.command: >
+    go build -trimpath 
+    -ldflags="-s -w -X 'github.com/aravindh-murugesan/openstack-virt-agent/pkg/version.Version={{ git_build_version_tag.stdout }}'"
+    -o "{{ role_path }}/../../../bin/openstack-virt-agent-{{ git_build_version_tag.stdout }}-{{ openstack_virt_agent_goos }}-{{ openstack_virt_agent_goarch }}"
+    {{ openstack_virt_agent_entrypoint_file }}
+  environment:
+    CGO_ENABLED: "0"
+    GOOS: "{{ openstack_virt_agent_goos }}"
+    GOARCH: "{{ openstack_virt_agent_goarch }}"
+  args:
+    chdir: "{{ temp_build_dir.path }}"
+
+- name: "Clean up temporary build directory"
+  ansible.builtin.file:
+    path: "{{ temp_build_dir.path }}"
+    state: absent

@@ -1,0 +1,9 @@
+{{ openstack_virt_agent_log_path }}/openstack-virt-agent.log {
+    daily
+    size {{ openstack_virt_agent_log_size }}
+    rotate {{ openstack_virt_agent_log_retention_days }}
+    compress
+    missingok
+    notifempty
+    copytruncate
+}

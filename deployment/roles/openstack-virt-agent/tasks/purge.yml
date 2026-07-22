@@ -1,0 +1,56 @@
+---
+- name: Check if systemd unit file exists
+  ansible.builtin.stat:
+    path: "/etc/systemd/system/{{ openstack_virt_agent_service_name }}.service"
+  register: service_file_stat
+
+- name: Stop and disable openstack-virt-agent service
+  ansible.builtin.systemd:
+    name: "{{ openstack_virt_agent_service_name }}"
+    state: stopped
+    enabled: no
+  when: service_file_stat.stat.exists
+
+- name: Remove systemd unit file
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ openstack_virt_agent_service_name }}.service"
+    state: absent
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+- name: Remove openstack-virt-agent binary
+  ansible.builtin.file:
+    path: /usr/local/bin/openstack-virt-agent
+    state: absent
+
+- name: Remove openstack-virt-agent configuration directory
+  ansible.builtin.file:
+    path: "{{ openstack_virt_agent_config_path }}"
+    state: absent
+
+- name: Remove openstack-virt-agent log directory
+  ansible.builtin.file:
+    path: "{{ openstack_virt_agent_log_path }}"
+    state: absent
+
+- name: Remove logrotate configuration
+  ansible.builtin.file:
+    path: "/etc/logrotate.d/{{ openstack_virt_agent_service_name }}"
+    state: absent
+
+- name: Remove openstack-virt-agent user
+  ansible.builtin.user:
+    name: "{{ openstack_virt_agent_user }}"
+    state: absent
+    remove: yes
+
+- name: Remove openstack-virt-agent group
+  ansible.builtin.group:
+    name: "{{ openstack_virt_agent_group }}"
+    state: absent
+
+- name: Notify about clouds.yaml
+  ansible.builtin.debug:
+    msg: "Notice: The openstack-virt-agent entries in clouds.yaml were NOT automatically removed to prevent accidental breakage of other OpenStack clients. Please remove them manually if necessary."

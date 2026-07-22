@@ -1,0 +1,5 @@
+---
+- name: "Deploy Openstack Virt Agent"
+  hosts: hypervisors
+  roles:
+    - openstack-virt-agent

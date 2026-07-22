@@ -1,0 +1,138 @@
+---
+- name: Create virt-enforcer group
+  ansible.builtin.group:
+    name: "{{ openstack_virt_agent_group }}"
+    state: present
+
+- name: Create virt-enforcer user
+  ansible.builtin.user:
+    name: "{{ openstack_virt_agent_user }}"
+    group: "{{ openstack_virt_agent_group }}"
+    groups: "{{ openstack_virt_agent_libvirt_group }}"
+    append: yes
+    shell: "{{ openstack_virt_agent_shell }}"
+    system: yes
+    create_home: no
+    state: present
+
+- name: Create configuration directory
+  ansible.builtin.file:
+    path: "{{ openstack_virt_agent_config_path }}"
+    state: directory
+    owner: "{{ openstack_virt_agent_user }}"
+    group: "{{ openstack_virt_agent_group }}"
+    mode: "0755"
+
+- name: Create log directory
+  ansible.builtin.file:
+    path: "{{ openstack_virt_agent_log_path }}"
+    state: directory
+    owner: "{{ openstack_virt_agent_user }}"
+    group: "{{ openstack_virt_agent_group }}"
+    mode: "0755"
+
+- name: Create openstack configuration directory
+  ansible.builtin.file:
+    path: "{{ openstack_virt_agent_clouds_yaml_path | dirname }}"
+    state: directory
+    owner: "{{ openstack_virt_agent_user }}"
+    group: "{{ openstack_virt_agent_group }}"
+    mode: "0755"
+  when: openstack_virt_agent_manage_clouds_yaml | bool
+
+- name: Stat clouds.yaml
+  ansible.builtin.stat:
+    path: "{{ openstack_virt_agent_clouds_yaml_path }}"
+  register: clouds_yaml_stat
+  when: openstack_virt_agent_manage_clouds_yaml | bool
+
+- name: Slurp existing clouds.yaml
+  ansible.builtin.slurp:
+    src: "{{ openstack_virt_agent_clouds_yaml_path }}"
+  register: clouds_yaml_slurp
+  when:
+    - openstack_virt_agent_manage_clouds_yaml | bool
+    - clouds_yaml_stat.stat.exists
+
+- name: Combine clouds.yaml content
+  ansible.builtin.set_fact:
+    final_clouds_yaml: >-
+      {{
+        (clouds_yaml_slurp.content | b64decode | from_yaml | default({'clouds': {}}))
+        | combine(openstack_virt_agent_clouds_yaml_content | from_yaml, recursive=True)
+      }}
+  when:
+    - openstack_virt_agent_manage_clouds_yaml | bool
+    - clouds_yaml_stat.stat.exists
+
+- name: Deploy merged clouds.yaml
+  ansible.builtin.copy:
+    content: "{{ final_clouds_yaml | to_nice_yaml }}"
+    dest: "{{ openstack_virt_agent_clouds_yaml_path }}"
+    owner: "{{ openstack_virt_agent_user }}"
+    group: "{{ openstack_virt_agent_group }}"
+    mode: "0600"
+  when:
+    - openstack_virt_agent_manage_clouds_yaml | bool
+    - clouds_yaml_stat.stat.exists
+
+- name: Deploy new clouds.yaml if it does not exist
+  ansible.builtin.copy:
+    content: "{{ openstack_virt_agent_clouds_yaml_content }}"
+    dest: "{{ openstack_virt_agent_clouds_yaml_path }}"
+    owner: "{{ openstack_virt_agent_user }}"
+    group: "{{ openstack_virt_agent_group }}"
+    mode: "0600"
+  when:
+    - openstack_virt_agent_manage_clouds_yaml | bool
+    - not clouds_yaml_stat.stat.exists
+
+- name: Set binary source path
+  ansible.builtin.set_fact:
+    virt_agent_binary_src: >-
+      {% if openstack_virt_agent_prebuilt_binary != "" %}
+      {{ openstack_virt_agent_prebuilt_binary }}
+      {% else %}
+      {{ role_path }}/../../../bin/openstack-virt-agent-{{ git_build_version_tag.stdout }}-{{ openstack_virt_agent_goos }}-{{ openstack_virt_agent_goarch }}
+      {% endif %}
+
+- name: Copy openstack-virt-agent binary to /usr/local/bin/
+  ansible.builtin.copy:
+    src: "{{ virt_agent_binary_src | trim }}"
+    dest: /usr/local/bin/openstack-virt-agent
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Copy openstack-virt-agent configuration file
+  ansible.builtin.copy:
+    src: "{{ openstack_virt_agent_configuration_file }}"
+    dest: "{{ openstack_virt_agent_config_path }}/config.yaml"
+    owner: "{{ openstack_virt_agent_user }}"
+    group: "{{ openstack_virt_agent_group }}"
+    mode: "0640"
+  when: openstack_virt_agent_configuration_file != ""
+
+- name: Deploy systemd service file
+  ansible.builtin.template:
+    src: openstack-virt-agent.service.j2
+    dest: "/etc/systemd/system/{{ openstack_virt_agent_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  register: systemd_unit
+
+- name: Enable and start openstack-virt-agent service
+  ansible.builtin.systemd:
+    name: "{{ openstack_virt_agent_service_name }}"
+    enabled: yes
+    state: "{{ 'restarted' if systemd_unit.changed else 'started' }}"
+    daemon_reload: "{{ 'yes' if systemd_unit.changed else 'no' }}"
+
+- name: Deploy logrotate configuration
+  ansible.builtin.template:
+    src: openstack-virt-agent.logrotate.j2
+    dest: "/etc/logrotate.d/{{ openstack_virt_agent_service_name }}"
+    owner: root
+    group: root
+    mode: "0644"

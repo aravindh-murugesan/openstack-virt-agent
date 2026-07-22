@@ -1,0 +1,9 @@
+---
+- name: "Purge Openstack Virt Agent"
+  hosts: hypervisors
+  become: true
+  tasks:
+    - name: Run purge tasks
+      ansible.builtin.include_role:
+        name: openstack-virt-agent
+        tasks_from: purge.yml

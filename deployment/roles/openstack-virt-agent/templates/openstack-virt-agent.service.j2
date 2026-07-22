@@ -1,0 +1,37 @@
+[Unit]
+Description=OpenStack Virt Agent
+Documentation=https://github.com/aravindh-murugesan/openstack-virt-agent
+After=network.target libvirtd.service
+Wants=libvirtd.service
+
+[Service]
+Type=simple
+User={{ openstack_virt_agent_user }}
+Group={{ openstack_virt_agent_group }}
+
+# Start the agent in daemon mode
+ExecStart=/usr/local/bin/openstack-virt-agent --config {{ openstack_virt_agent_config_path }}/config.yaml daemon-mode
+
+# Auto-restart on crash
+Restart=on-failure
+RestartSec=5s
+
+# Security Hardening Best Practices
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=yes
+RestrictRealtime=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+
+# Performance Limits
+LimitNOFILE=65536
+
+# Logging
+StandardOutput=append:{{ openstack_virt_agent_log_path }}/openstack-virt-agent.log
+StandardError=inherit
+SyslogIdentifier={{ openstack_virt_agent_service_name }}
+
+[Install]
+WantedBy=multi-user.target

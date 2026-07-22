@@ -1,0 +1,42 @@
+## Build Settings
+openstack_virt_agent_version_tag: HEAD
+openstack_virt_agent_entrypoint_file: "main.go"
+openstack_virt_agent_goos: linux
+openstack_virt_agent_goarch: amd64
+openstack_virt_agent_prebuilt_binary: "" ## Leave it empty if you want to build automatically.
+
+# User and Group Settings
+openstack_virt_agent_user: "openstack-virt-agent"
+openstack_virt_agent_group: "openstack-virt-agent"
+openstack_virt_agent_libvirt_group: "libvirt"
+openstack_virt_agent_shell: "/sbin/nologin"
+
+# Systemd Settings
+openstack_virt_agent_service_name: "openstack-virt-agent"
+openstack_virt_agent_config_path: "/etc/openstack-virt-agent"
+openstack_virt_agent_log_path: "/var/log/{{ openstack_virt_agent_service_name }}"
+
+# Log Rotation Settings
+openstack_virt_agent_log_retention_days: 7
+openstack_virt_agent_log_size: "200M"
+openstack_virt_agent_log_frequency: "daily"
+
+# Openstack Configurations
+openstack_virt_agent_manage_clouds_yaml: true
+openstack_virt_agent_clouds_yaml_path: "{{ openstack_virt_agent_config_path }}/clouds.yaml"
+openstack_virt_agent_clouds_yaml_content: |
+  clouds:
+    openstack-virt-enforcer:
+      auth:
+        auth_url: "http://openstack:5000/v3"
+        project_name: "admin"
+        username: "admin"
+        password: "password"
+        user_domain_name: "Default"
+        project_domain_name: "Default"
+      region_name: "RegionOne"
+      interface: "public"
+      identity_api_version: 3
+
+# Virt Agent Configuration file
+openstack_virt_agent_configuration_file: ""

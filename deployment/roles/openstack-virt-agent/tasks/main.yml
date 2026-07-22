@@ -1,0 +1,11 @@
+- name: Build Openstack Virt Agent
+  delegate_to: localhost
+  import_tasks: build.yml
+  when:
+    - openstack_virt_agent_prebuilt_binary == ""
+
+- name: Deploy for linux servers
+  import_tasks: linux-deployment.yaml
+  become: true
+  when:
+    - ansible_facts["os_family"] == "RedHat" or ansible_facts["os_family"] == "Debian"
