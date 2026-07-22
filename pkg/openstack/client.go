@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/aravindh-murugesan/openstack-virt-agent/pkg/config"
@@ -36,6 +37,13 @@ func NewOpenstackClient(openstackConfig config.OpenStackConfig) (*OpenstackClien
 	// Resolve the target cloud environment configuration.
 	opts := &clientconfig.ClientOpts{
 		Cloud: openstackConfig.CloudName,
+	}
+
+	// Force gophercloud to use the clouds.yaml file specified in our config
+	if openstackConfig.CloudsFile != "" {
+		if err := os.Setenv("OS_CLIENT_CONFIG_FILE", openstackConfig.CloudsFile); err != nil {
+			return nil, err
+		}
 	}
 
 	cloudConfig, rerr := clientconfig.GetCloudFromYAML(opts)
