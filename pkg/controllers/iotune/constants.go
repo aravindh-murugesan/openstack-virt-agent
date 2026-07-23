@@ -12,6 +12,7 @@ const (
 	LogVirtualMachineId           = "virtual_machine_id"
 	LogVirtualMachineName         = "virtual_machine_name"
 	LogCinderDiskID               = "cinder_disk_id"
+	LogCinderVolumeType           = "cinder_volume_type"
 	LogCinderDiskState            = "cinder_disk_state"
 	LogMessage                    = "message"
 	LogCloudRequestID             = "cloud_request_id"

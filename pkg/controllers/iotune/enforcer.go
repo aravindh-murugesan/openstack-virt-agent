@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
@@ -85,6 +86,25 @@ func enforceDisk(
 		return
 	}
 
+	// Validate if the cinder disk's type is excluded from virt-agent processing
+	if isVolumeTypeExcluded(volume, cfg) {
+		diskLogger.InfoContext(ctx, "Volume type is excluded from virt-agent processing. Nothing to do.", slog.String(LogCinderVolumeType, volume.VolumeType))
+		// Respond back if requested via NATS
+		if triggeredByNATS {
+			publishEvent(ctx, connections, natsRequestID, NATSDiskQoSEnforcementNotification{
+				ID:           uuid.NewString(),
+				RequestID:    natsRequestID,
+				InstanceUUID: vm.UUID,
+				InstanceName: vm.OpenstackName,
+				VolumeUUID:   disk.Serial,
+				OccurredAt:   time.Now(),
+				Status:       "ignored",
+				Message:      "Volume is part of an excluded volume type",
+			})
+		}
+		return
+	}
+
 	// 2. Resolve base limits and max limits based on volume type
 	basePolicy, maxPolicy := resolveLimits(ctx, diskLogger, volume, cfg)
 
@@ -145,6 +165,17 @@ func enforceDisk(
 			EnforcedPolicy: finalPolicyObj,
 		})
 	}
+}
+
+// isVolumeTypeExcluded checks if the given volume type is excluded from processing.
+func isVolumeTypeExcluded(volume volumes.Volume, cfg *config.IOPSConfig) bool {
+	vt := strings.ToLower(volume.VolumeType)
+	ex := cfg.ExcludeVolumeTypes
+
+	// lowercased for comparision
+	return slices.ContainsFunc(ex, func(e string) bool {
+		return strings.EqualFold(e, vt)
+	})
 }
 
 // resolveLimits extracts the base policy and max policy for a given cinder volume based on its volume type.
