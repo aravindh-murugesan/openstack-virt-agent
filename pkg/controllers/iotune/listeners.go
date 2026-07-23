@@ -74,6 +74,11 @@ func processLibvirtEvents(
 			}
 			msg, ok := ev.(*libvirt.DomainEventCallbackDeviceAddedMsg)
 			if ok {
+				slog.DebugContext(
+					ctx, "Disk attachment event detected",
+					slog.String("dev_alias", msg.DevAlias),
+					slog.String(LogVirtualMachineId, msg.Dom.Name),
+				)
 				enqueueVMByName(ctx, connections, msg.Dom.Name, "", false, "", jobQueue)
 			}
 		case ev, ok := <-lifecycleEvents:
@@ -84,6 +89,11 @@ func processLibvirtEvents(
 			if ok {
 				eventKey, _ := hypervisor.ParseLifecycle(msg.Msg.Event, msg.Msg.Detail)
 				if eventKey == "VM_STARTED" || eventKey == "VM_RESUMED" {
+					slog.DebugContext(
+						ctx, "Virtual machine lifecycle event detected",
+						slog.String(LogVirtualMachineId, msg.Msg.Dom.Name),
+						slog.String("event", eventKey),
+					)
 					enqueueVMByName(ctx, connections, msg.Msg.Dom.Name, "", false, "", jobQueue)
 				}
 			}
