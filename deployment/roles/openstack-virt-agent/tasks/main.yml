@@ -3,6 +3,7 @@
   import_tasks: build.yml
   when:
     - openstack_virt_agent_prebuilt_binary == ""
+  run_once: true
 
 - name: Deploy for linux servers
   import_tasks: linux-deployment.yaml
