@@ -7,6 +7,7 @@ type IOPSConfig struct {
 	VolumeTypePolicy     map[string]VolumeTypePolicy `mapstructure:"volume_type_policy"`
 	AuthorizedPubKeys    map[string]string           `mapstructure:"authorized_pub_keys"`
 	AuditIntervalMinutes int                         `mapstructure:"audit_interval_minutes"`
+	ExcludeVolumeTypes   []string                    `mapstructure:"exclude_volume_types"`
 }
 
 type VolumeTypePolicy struct {
