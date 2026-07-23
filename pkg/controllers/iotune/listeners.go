@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -87,14 +88,26 @@ func processLibvirtEvents(
 			}
 			msg, ok := ev.(*libvirt.DomainEventCallbackLifecycleMsg)
 			if ok {
-				eventKey, _ := hypervisor.ParseLifecycle(msg.Msg.Event, msg.Msg.Detail)
-				if eventKey == "VM_STARTED" || eventKey == "VM_RESUMED" {
+				eventKey, details := hypervisor.ParseLifecycle(msg.Msg.Event, msg.Msg.Detail)
+				if eventKey == "VM_STARTED" || (eventKey == "VM_RESUMED" && strings.Contains(details, "Migration Finished")) {
+
+					// Ignore incoming live migration, as this will fail anyway
+					if strings.Contains(details, "Incoming Migration") {
+						slog.DebugContext(
+							ctx, "Ignoring incoming migration event",
+							slog.String(LogVirtualMachineId, msg.Msg.Dom.Name),
+							slog.String("event", eventKey),
+						)
+					}
+
+					// Default successful path for lifecycle events
 					slog.DebugContext(
 						ctx, "Virtual machine lifecycle event detected",
 						slog.String(LogVirtualMachineId, msg.Msg.Dom.Name),
 						slog.String("event", eventKey),
 					)
 					enqueueVMByName(ctx, connections, msg.Msg.Dom.Name, "", false, "", jobQueue)
+
 				}
 			}
 		}
