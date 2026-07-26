@@ -112,6 +112,7 @@
     group: "{{ openstack_virt_agent_group }}"
     mode: "0640"
   when: openstack_virt_agent_configuration_file != ""
+  register: config_file
 
 - name: Deploy systemd service file
   ansible.builtin.template:
@@ -126,7 +127,7 @@
   ansible.builtin.systemd:
     name: "{{ openstack_virt_agent_service_name }}"
     enabled: yes
-    state: "{{ 'restarted' if systemd_unit.changed else 'started' }}"
+    state: "{{ 'restarted' if systemd_unit.changed or (config_file is defined and config_file.changed) else 'started' }}"
     daemon_reload: "{{ 'yes' if systemd_unit.changed else 'no' }}"
 
 - name: Deploy logrotate configuration
