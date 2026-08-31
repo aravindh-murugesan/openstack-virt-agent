@@ -4,6 +4,7 @@ package messaging
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"time"
@@ -52,6 +53,23 @@ func NewNATSInstance(c config.NatsConfig) (*NATSInstance, error) {
 		return nil, fmt.Errorf("nats username and password must be set together")
 	} else if c.Username != "" && c.Password != "" {
 		opts = append(opts, nats.UserInfo(c.Username, c.Password))
+	}
+
+	if c.TLS.Enabled {
+		if c.TLS.InsecureSkipVerify {
+			opts = append(opts, nats.Secure(&tls.Config{
+				InsecureSkipVerify: true,
+			}))
+		} else {
+			opts = append(opts, nats.Secure())
+		}
+
+		if c.TLS.CAFile != "" {
+			opts = append(opts, nats.RootCAs(c.TLS.CAFile))
+		}
+		if c.TLS.CertFile != "" && c.TLS.KeyFile != "" {
+			opts = append(opts, nats.ClientCert(c.TLS.CertFile, c.TLS.KeyFile))
+		}
 	}
 
 	ns, err := nats.Connect(n.URL, opts...)
