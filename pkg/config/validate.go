@@ -5,9 +5,9 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // Validate runs cross-field semantic validation on the configuration.
@@ -27,23 +27,26 @@ func (l *LibvirtConfig) Validate() error {
 		return fmt.Errorf("uri is required when libvirt is enabled")
 	}
 
-	if strings.HasPrefix(l.URI, "qemu:///") {
-		return nil
+	validatedurl, err := url.Parse(l.URI)
+	if err != nil {
+		return fmt.Errorf("failed to parse libvirt uri: %w", err)
 	}
 
-	if l.PkiPath == "" {
-		return fmt.Errorf("pki_path is required when libvirt connection url is not local")
-	}
+	if validatedurl.Scheme == "qemu+tls" {
+		if l.PkiPath == "" {
+			return fmt.Errorf("pki_path is required when libvirt connection url scheme is qemu+tls")
+		}
 
-	reqPaths := []string{
-		filepath.Join(l.PkiPath, "clientkey.pem"),
-		filepath.Join(l.PkiPath, "clientcert.pem"),
-		filepath.Join(l.PkiPath, "cacert.pem"),
-	}
+		reqPaths := []string{
+			filepath.Join(l.PkiPath, "clientkey.pem"),
+			filepath.Join(l.PkiPath, "clientcert.pem"),
+			filepath.Join(l.PkiPath, "cacert.pem"),
+		}
 
-	for _, path := range reqPaths {
-		if _, err := os.Stat(path); err != nil {
-			return fmt.Errorf("required file not found: %s", path)
+		for _, path := range reqPaths {
+			if _, err := os.Stat(path); err != nil {
+				return fmt.Errorf("required file not found: %s", path)
+			}
 		}
 	}
 
