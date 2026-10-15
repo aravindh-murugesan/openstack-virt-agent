@@ -82,17 +82,12 @@ func (l *LibvirtClient) Reconnect() error {
 		_ = l.Connection.Disconnect()
 	}
 
-	validatedurl, err := url.Parse(l.URI)
+	nlc, err := NewLibvirtClient(l.URI, l.PkiPath, l.InsecureSkipVerify)
 	if err != nil {
 		return err
 	}
 
-	conn, err := libvirt.ConnectToURI(validatedurl)
-	if err != nil {
-		return err
-	}
-
-	l.Connection = conn
+	l.Connection = nlc.Connection
 	return nil
 }
 
