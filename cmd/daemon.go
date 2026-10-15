@@ -54,7 +54,7 @@ var daemonCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		libvirtClient, err := hypervisor.NewLibvirtClient("qemu:///system")
+		libvirtClient, err := hypervisor.NewLibvirtClient("qemu:///system", "", false)
 		if err != nil {
 			slog.ErrorContext(ctx, "Failed to initialize Libvirt client", slog.String("error", err.Error()))
 			os.Exit(1)
