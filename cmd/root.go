@@ -2,13 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
-	"time"
 
 	"github.com/aravindh-murugesan/openstack-virt-agent/pkg/config"
 	"github.com/aravindh-murugesan/openstack-virt-agent/pkg/version"
-	"github.com/lmittmann/tint"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -18,9 +15,9 @@ var Config config.Config
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:     "openstack-virt-agent",
-	Short:   "Virt Agent for OpenStack",
-	Long:    `Virt Agent enforces and adapts features that are not yet available on openstack
+	Use:   "openstack-virt-agent",
+	Short: "Virt Agent for OpenStack",
+	Long: `Virt Agent enforces and adapts features that are not yet available on openstack
 or the behavior in openstack may be too rigid for cloud operators to function.`,
 	Version: version.Version,
 }
@@ -71,23 +68,4 @@ func initConfig() {
 		fmt.Fprintf(os.Stderr, "Configuration validation failed: %v\n", err)
 		os.Exit(1)
 	}
-}
-
-func setupLogger() {
-	var lvl slog.Level
-	if err := lvl.UnmarshalText([]byte(Config.LogLevel)); err != nil {
-		lvl = slog.LevelInfo // fallback if unparseable or empty
-	}
-
-	var handler slog.Handler
-	if Config.Environment == "production" {
-		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl})
-	} else {
-		// tint is used for development/pretty-printing
-		handler = tint.NewHandler(os.Stdout, &tint.Options{
-			Level:      lvl,
-			TimeFormat: time.RFC3339,
-		})
-	}
-	slog.SetDefault(slog.New(handler))
 }
