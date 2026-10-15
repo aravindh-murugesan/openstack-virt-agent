@@ -54,34 +54,36 @@ var daemonCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		libvirtClient, err := hypervisor.NewLibvirtClient("qemu:///system", "", false)
-		if err != nil {
-			slog.ErrorContext(ctx, "Failed to initialize Libvirt client", slog.String("error", err.Error()))
-			os.Exit(1)
-		}
-		if libvirtClient.Connection != nil {
-			defer libvirtClient.Connection.Disconnect()
-		}
-
-		connections := &controllers.Connections{
-			NatsInstance:      natsClient,
-			OpenstackInstance: osClient,
-			LibvirtInstance:   libvirtClient,
-		}
+		eg, egCtx := errgroup.WithContext(ctx)
 
 		var activeControllers []controllers.Controller
 
-		if Config.Controllers.IOPS.Enabled {
-			iopsCtrl := iotune.NewIOTuneController(Config.Controllers.IOPS, connections)
-			activeControllers = append(activeControllers, iopsCtrl)
+		for _, hypInstance := range Config.LibvirtEndpoints {
+			lc, err := hypervisor.NewLibvirtClient(hypInstance.URI, hypInstance.PkiPath, hypInstance.InsecureSkipVerify)
+			if err != nil {
+				slog.ErrorContext(ctx, "Failed to initialize Libvirt client", slog.String("error", err.Error()))
+				os.Exit(1)
+			}
+			if lc.Connection != nil {
+				defer lc.Connection.Disconnect()
+			}
+
+			connections := &controllers.Connections{
+				NatsInstance:      natsClient,
+				OpenstackInstance: osClient,
+				LibvirtInstance:   lc,
+			}
+
+			if Config.Controllers.IOPS.Enabled {
+				iopsCtrl := iotune.NewIOTuneController(Config.Controllers.IOPS, connections)
+				activeControllers = append(activeControllers, iopsCtrl)
+			}
 		}
 
 		if len(activeControllers) == 0 {
 			slog.WarnContext(ctx, "No controllers are enabled in the configuration")
 			return
 		}
-
-		eg, egCtx := errgroup.WithContext(ctx)
 
 		for _, ctrl := range activeControllers {
 			eg.Go(func() error {
@@ -101,11 +103,11 @@ var daemonCmd = &cobra.Command{
 			return nil
 		})
 
-		slog.InfoContext(ctx, "Virt Agent daemon is running")
+		slog.InfoContext(ctx, "Virt Agent Instance (Daemon mode) is running")
 		if err := eg.Wait(); err != nil {
-			slog.ErrorContext(ctx, "Daemon exited with error", slog.String("error", err.Error()))
+			slog.ErrorContext(ctx, "Virt Agent Instance (Daemon mode) exited with error", slog.String("error", err.Error()))
 		}
-		slog.InfoContext(ctx, "Virt Agent daemon stopped")
+		slog.InfoContext(ctx, "Virt Agent Instance (Daemon mode) is stopped")
 	},
 }
 
