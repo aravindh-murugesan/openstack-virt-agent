@@ -7,32 +7,57 @@ import (
 	"net/url"
 
 	"github.com/digitalocean/go-libvirt"
+	"github.com/digitalocean/go-libvirt/socket/dialers"
 )
 
 // LibvirtClient provides an interface to interact with the local hypervisor daemon.
 // It wraps the underlying go-libvirt connection to perform hardware-level operations
 // such as querying domains and modifying runtime disk I/O policies.
 type LibvirtClient struct {
-	Connection *libvirt.Libvirt
-	URI        string
+	Connection         *libvirt.Libvirt
+	URI                string
+	PkiPath            string
+	InsecureSkipVerify bool
 }
 
-// NewLibvirtClient establishes a connection to the local libvirt daemon using the provided URI.
-// It parses the URI and negotiates the RPC connection over the local socket.
-func NewLibvirtClient(uri string) (*LibvirtClient, error) {
-
+// NewLibvirtClient establishes a connection to the local or remote libvirt daemon using the provided URI.
+// It parses the URI and negotiates the RPC connection via a local socket or TLS dialer.
+func NewLibvirtClient(uri string, pkiPath string, insecureSkipVerify bool) (*LibvirtClient, error) {
 	validatedurl, err := url.Parse(uri)
 	if err != nil {
 		return nil, err
 	}
-	conn, err := libvirt.ConnectToURI(validatedurl)
-	if err != nil {
-		return nil, err
+
+	var conn *libvirt.Libvirt
+	if validatedurl.Scheme == "qemu+tls" {
+		opts := []dialers.TLSOption{
+			dialers.UsePKIPath(pkiPath),
+		}
+		if insecureSkipVerify {
+			opts = append(opts, dialers.WithInsecureNoVerify())
+		}
+
+		conn = libvirt.NewWithDialer(
+			dialers.NewTLS(validatedurl.Host, opts...),
+		)
+
+		err = conn.Connect()
+		if err != nil {
+			return nil, err
+		}
+
+	} else {
+		conn, err = libvirt.ConnectToURI(validatedurl)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &LibvirtClient{
-		Connection: conn,
-		URI:        uri,
+		Connection:         conn,
+		URI:                uri,
+		PkiPath:            pkiPath,
+		InsecureSkipVerify: insecureSkipVerify,
 	}, nil
 }
 
