@@ -64,12 +64,12 @@ func NewLibvirtClient(uri string, pkiPath string, insecureSkipVerify bool) (*Lib
 // CheckHealth verifies if the connection to libvirtd is still alive.
 func (l *LibvirtClient) CheckHealth() error {
 	if !l.Connection.IsConnected() {
-		return fmt.Errorf("libvirt connection is no longer alive")
+		return fmt.Errorf("libvirt connection (%s) is no longer alive", l.URI)
 	}
 
 	_, err := l.Connection.ConnectGetVersion()
 	if err != nil {
-		return fmt.Errorf("libvirt connection is no longer alive: %v", err)
+		return fmt.Errorf("libvirt connection (%s) is no longer alive: %v", l.URI, err)
 	}
 
 	return nil
@@ -103,7 +103,7 @@ func (l *LibvirtClient) EnsureConnection() error {
 		return fmt.Errorf("reconnect failed: %w", err)
 	}
 
-	slog.Info("Successfully reconnected to libvirt daemon")
+	slog.Info("Successfully reconnected to libvirt daemon", slog.String("uri", l.URI))
 	return nil
 }
 
