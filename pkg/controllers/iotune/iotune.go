@@ -33,7 +33,9 @@ func (c *IOTuneController) IsEnabled() bool {
 func (c *IOTuneController) StartDaemon() error {
 	slog.Info("Starting iotune-controller daemon...")
 
-	ctx, cancel := context.WithCancel(context.Background())
+	valCtx := context.WithValue(context.Background(), "libvirt_host", c.connections.LibvirtInstance.URI)
+
+	ctx, cancel := context.WithCancel(valCtx)
 	c.cancel = cancel
 
 	eg, egCtx := errgroup.WithContext(ctx)
