@@ -5,6 +5,9 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 // Validate runs cross-field semantic validation on the configuration.
@@ -15,6 +18,35 @@ func (c *Config) Validate() error {
 	if err := c.Nats.Validate(); err != nil {
 		return fmt.Errorf("nats config error: %w", err)
 	}
+	return nil
+}
+
+// Validate checks the libvirt configuration.
+func (l *LibvirtConfig) Validate() error {
+	if l.URI == "" {
+		return fmt.Errorf("uri is required when libvirt is enabled")
+	}
+
+	if strings.HasPrefix(l.URI, "qemu:///") {
+		return nil
+	}
+
+	if l.PkiPath == "" {
+		return fmt.Errorf("pki_path is required when libvirt connection url is not local")
+	}
+
+	reqPaths := []string{
+		filepath.Join(l.PkiPath, "clientkey.pem"),
+		filepath.Join(l.PkiPath, "clientcert.pem"),
+		filepath.Join(l.PkiPath, "cacert.pem"),
+	}
+
+	for _, path := range reqPaths {
+		if _, err := os.Stat(path); err != nil {
+			return fmt.Errorf("required file not found: %s", path)
+		}
+	}
+
 	return nil
 }
 
