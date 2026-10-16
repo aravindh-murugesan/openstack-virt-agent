@@ -59,10 +59,14 @@ var daemonCmd = &cobra.Command{
 		var activeControllers []controllers.Controller
 
 		for _, hypInstance := range Config.LibvirtEndpoints {
+			if err := hypInstance.Validate(); err != nil {
+				slog.ErrorContext(ctx, "Libvirt instance validation failed, skipping this instance", slog.String("URI", hypInstance.URI), slog.String("error", err.Error()))
+				continue
+			}
 			lc, err := hypervisor.NewLibvirtClient(hypInstance.URI, hypInstance.PkiPath, hypInstance.InsecureSkipVerify)
 			if err != nil {
-				slog.ErrorContext(ctx, "Failed to initialize Libvirt client", slog.String("error", err.Error()))
-				os.Exit(1)
+				slog.ErrorContext(ctx, "Failed to initialize Libvirt client, skipping this instance", slog.String("URI", hypInstance.URI), slog.String("error", err.Error()))
+				continue
 			}
 			if lc.Connection != nil {
 				defer lc.Connection.Disconnect()
