@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -128,7 +127,9 @@ func StartNATSListener(ctx context.Context, connections *controllers.Connections
 		return
 	}
 
-	hostname, _ := os.Hostname()
+	// Replace dots with hyphens for consumer names for jetstream compatability.
+	// Libvirt hostname is used for compatability for both edge and centralized agents.
+	hostname := strings.ReplaceAll(connections.LibvirtInstance.Hostname, ".", "-")
 	if hostname == "" {
 		hostname = uuid.NewString()
 	}

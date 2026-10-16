@@ -18,6 +18,7 @@ type LibvirtClient struct {
 	URI                string
 	PkiPath            string
 	InsecureSkipVerify bool
+	Hostname           string
 }
 
 // NewLibvirtClient establishes a connection to the local or remote libvirt daemon using the provided URI.
@@ -53,11 +54,17 @@ func NewLibvirtClient(uri string, pkiPath string, insecureSkipVerify bool) (*Lib
 		}
 	}
 
+	hostname, err := conn.ConnectGetHostname()
+	if err != nil {
+		return nil, err
+	}
+
 	return &LibvirtClient{
 		Connection:         conn,
 		URI:                uri,
 		PkiPath:            pkiPath,
 		InsecureSkipVerify: insecureSkipVerify,
+		Hostname:           hostname,
 	}, nil
 }
 
@@ -88,6 +95,7 @@ func (l *LibvirtClient) Reconnect() error {
 	}
 
 	l.Connection = nlc.Connection
+	l.Hostname = nlc.Hostname
 	return nil
 }
 
