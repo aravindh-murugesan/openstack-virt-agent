@@ -115,15 +115,16 @@ func processLibvirtEvents(
 
 // StartNATSListener subscribes to NATS Disk QoS update events and orchestrates enforcements.
 func StartNATSListener(ctx context.Context, connections *controllers.Connections, jobQueue chan<- EnforcementJob) {
-	slog.InfoContext(ctx, "NATS event listener started")
+	natsCtx := context.WithValue(ctx, LogControllerComponentHandler, "nats_event_listener")
+	slog.InfoContext(natsCtx, "NATS event listener started")
 
 	if connections.NatsInstance == nil || connections.NatsInstance.JetStreamConnection == nil {
-		slog.ErrorContext(ctx, "NATS connection not initialized. Listener aborting.")
+		slog.ErrorContext(natsCtx, "NATS connection not initialized. Listener aborting.")
 		return
 	}
 
-	if err := createIotuneStreams(ctx, connections.NatsInstance); err != nil {
-		slog.ErrorContext(ctx, "Failed to create streams for IOtune subscriptions", slog.String(LogMessage, err.Error()))
+	if err := createIotuneStreams(natsCtx, connections.NatsInstance); err != nil {
+		slog.ErrorContext(natsCtx, "Failed to create streams for IOtune subscriptions", slog.String(LogMessage, err.Error()))
 		return
 	}
 
@@ -141,7 +142,7 @@ func StartNATSListener(ctx context.Context, connections *controllers.Connections
 		fmt.Sprintf("va-iotune-%s", hostname),
 	)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to subscribe to disk qos update", slog.String(LogMessage, err.Error()))
+		slog.ErrorContext(natsCtx, "Failed to subscribe to disk qos update", slog.String(LogMessage, err.Error()))
 		return
 	}
 
@@ -153,27 +154,27 @@ func StartNATSListener(ctx context.Context, connections *controllers.Connections
 
 		var incomingMessage NATSDiskQoSUpdateRequest
 		if err := json.Unmarshal(msg.Data(), &incomingMessage); err != nil {
-			slog.ErrorContext(ctx, "Failed to parse NATS message", slog.String(LogMessage, err.Error()))
+			slog.ErrorContext(natsCtx, "Failed to parse NATS message", slog.String(LogMessage, err.Error()))
 			msg.Term()
 			return
 		}
 
-		slog.InfoContext(ctx, "Received QoS update request via NATS", slog.String("volume_uuid", incomingMessage.VolumeUUID), slog.String("request_id", incomingMessage.RequestID))
+		slog.InfoContext(natsCtx, "Received QoS update request via NATS", slog.String("volume_uuid", incomingMessage.VolumeUUID), slog.String("request_id", incomingMessage.RequestID))
 
 		// Enqueue job specifying the exact disk serial to enforce.
-		enqueueVMByName(ctx, connections, incomingMessage.InstanceUUID, incomingMessage.VolumeUUID, true, incomingMessage.RequestID, jobQueue)
+		enqueueVMByName(natsCtx, connections, incomingMessage.InstanceUUID, incomingMessage.VolumeUUID, true, incomingMessage.RequestID, jobQueue)
 
 		msg.Ack()
 	})
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to start NATS consumer consumption", slog.String(LogMessage, err.Error()))
+		slog.ErrorContext(natsCtx, "Failed to start NATS consumer consumption", slog.String(LogMessage, err.Error()))
 		return
 	}
 
 	<-ctx.Done()
 	qosConsume.Stop()
 	wg.Wait()
-	slog.InfoContext(ctx, "NATS event listener stopped")
+	slog.InfoContext(natsCtx, "NATS event listener stopped")
 }
 
 // createIotuneStreams creates the required NATS streams if they don't exist.
